@@ -2,7 +2,7 @@ from pathlib import Path
 import sys
 import argparse
 
-from capymoa.datasets import Bike
+from capymoa.datasets import Fried
 
 # Make src/ importable when running this file directly.
 ROOT = Path(__file__).resolve().parents[1]
@@ -15,10 +15,10 @@ from forecasting import ForecastDatasetBuilder, LagTransformer
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Build one-step and aggregated-horizon forecasting samples on Bike."
+        description="Build one-step and aggregated-horizon forecasting samples on Fried."
     )
     parser.add_argument("--lag-size", type=int, default=24, help="Lag window size k.")
-    parser.add_argument("--horizon", type=int, default=1, help="Aggregation horizon H.")
+    parser.add_argument("--horizon", type=int, default=6, help="Aggregation horizon H.")
     parser.add_argument(
         "--include-input-lags",
         action="store_true",
@@ -27,7 +27,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--max-samples",
         type=int,
-        default=-1,
+        default=2000,
         help="Maximum number of generated samples per mode. Use -1 for all.",
     )
     return parser.parse_args()
@@ -40,7 +40,7 @@ def main() -> None:
     include_input_lags = args.include_input_lags
     max_samples = None if args.max_samples < 0 else args.max_samples
 
-    stream_one_step = Bike()
+    stream_one_step = Fried()
     one_step_builder = ForecastDatasetBuilder(
         transformer=LagTransformer(k=lag_size, include_input_lags=include_input_lags),
     )
@@ -49,7 +49,7 @@ def main() -> None:
         max_samples=max_samples,
     )
 
-    stream_agg = Bike()
+    stream_agg = Fried()
     agg_builder = ForecastDatasetBuilder(
         transformer=LagTransformer(k=lag_size, include_input_lags=include_input_lags),
     )

@@ -119,7 +119,23 @@ From the project root:
 
 ```bash
 python examples/run_part2_bike.py
+python examples/run_part2_fried.py
+
+# custom parameters
+python examples/run_part2_bike.py --lag-size 48 --horizon 12 --include-input-lags --max-samples 5000
+python examples/run_part2_fried.py --lag-size 24 --horizon 1 --max-samples -1
 ```
+
+CLI parameters:
+
+- `--lag-size`: lag window size `k`
+- `--horizon`: forecasting horizon `H` for aggregated targets
+- `--include-input-lags`: include lagged input features
+- `--max-samples`: max samples per mode (`-1` means process all)
+
+`src/forecasting/core.py` is intentionally simplified and now assumes CapyMOA
+regression stream instances (`instance.y_value` and `instance.x`) to make the
+logic easier to read while covering both required datasets (Bike and Fried).
 
 ### Bike dataset reference
 

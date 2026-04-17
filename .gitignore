@@ -28,3 +28,6 @@ dist/
 results/
 outputs/
 artifacts/
+
+# data files
+data/
