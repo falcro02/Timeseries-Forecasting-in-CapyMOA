@@ -109,19 +109,15 @@ class LagTransformer:
         """
         if len(self.past_target_window) < self.k:
             self.past_target_window.append(current_y)
-            if self.include_input_lags and current_x is not None:
-                if self.past_feature_window is None:
-                    self.past_feature_window = deque(maxlen=self.k)
+            if self.past_feature_window is not None and current_x is not None:
                 self.past_feature_window.append(list(current_x))
             return None
 
         features = list(self.past_target_window)
 
-        if self.include_input_lags:
+        if self.past_feature_window is not None:
             if current_x is None:
                 raise ValueError("current_x must be provided when include_input_lags=True")
-            if self.past_feature_window is None:
-                self.past_feature_window = deque(maxlen=self.k)
             if len(self.past_feature_window) < self.k:
                 raise ValueError("Not enough input history to build lagged input features")
             for past_x in self.past_feature_window:
@@ -135,9 +131,7 @@ class LagTransformer:
         target = current_y
 
         self.past_target_window.append(current_y)
-        if self.include_input_lags and current_x is not None:
-            if self.past_feature_window is None:
-                self.past_feature_window = deque(maxlen=self.k)
+        if self.past_feature_window is not None and current_x is not None:
             self.past_feature_window.append(list(current_x))
 
         return features, target
