@@ -40,35 +40,22 @@ def main() -> None:
     include_input_lags = args.include_input_lags
     max_samples = None if args.max_samples < 0 else args.max_samples
 
-    stream_one_step = Bike()
-    one_step_builder = ForecastDatasetBuilder(
+    stream = Bike()
+    builder = ForecastDatasetBuilder(
         transformer=LagTransformer(k=lag_size, include_input_lags=include_input_lags),
     )
-    one_step_samples = one_step_builder.build_one_step(
-        source=stream_one_step,
-        max_samples=max_samples,
-    )
-
-    stream_agg = Bike()
-    agg_builder = ForecastDatasetBuilder(
-        transformer=LagTransformer(k=lag_size, include_input_lags=include_input_lags),
-    )
-    aggregated_samples = agg_builder.build_aggregated_horizon(
-        source=stream_agg,
+    samples = builder.build_forecasting_dataset(
+        source=stream,
         horizon=horizon,
         max_samples=max_samples,
     )
 
-    print(f"One-step samples: {len(one_step_samples)}")
-    if one_step_samples:
-        first = one_step_samples[0]
-        print(f"One-step first sample -> x_len={len(first.features)}, y={first.target:.3f}")
-
-    print(f"Aggregated H={horizon} samples: {len(aggregated_samples)}")
-    if aggregated_samples:
-        first = aggregated_samples[0]
+    mode = "one-step" if horizon == 1 else f"aggregated H={horizon}"
+    print(f"Samples ({mode}): {len(samples)}")
+    if samples:
+        first = samples[0]
         print(
-            f"Aggregated first sample -> x_len={len(first.features)}, y_mean={first.target:.3f}"
+            f"First sample -> x_len={len(first.features)}, target={first.target:.3f}"
         )
 
 

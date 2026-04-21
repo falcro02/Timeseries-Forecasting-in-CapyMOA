@@ -106,7 +106,7 @@ Data must be processed in a streaming fashion.
 
 - `src/forecasting/`: reusable forecasting library code
   - `lag_transformer.py`: lag-based feature transformation
-  - `core.py`: one-step and aggregated-horizon sample builders
+  - `core.py`: horizon-based sample builder (`H=1` for one-step)
   - `__init__.py`: package exports
 - `examples/`: runnable scripts
   - `run_part2_bike.py`: Part 2 example on Bike dataset
@@ -120,10 +120,17 @@ From the project root:
 ```bash
 python examples/run_part2_bike.py
 python examples/run_part2_fried.py
+python examples/run_bike.py
+python examples/run_part3_prequential_bike.py
+python examples/run_part3_raw_bike.py
 
 # custom parameters
 python examples/run_part2_bike.py --lag-size 48 --horizon 12 --include-input-lags --max-samples 5000
 python examples/run_part2_fried.py --lag-size 24 --horizon 1 --max-samples -1
+python examples/run_bike.py --lag-size 2 --horizon 3 --include-input-lags --show-samples 5
+python examples/run_part3_prequential_bike.py --lag-size 24 --horizon 1 --model arf --max-samples 5000 --window-size 500
+python examples/run_part3_prequential_bike.py --lag-size 24 --horizon 3 --model sgd --max-samples 5000 --window-size 500 --save-plot outputs/bike_h3.png
+python examples/run_part3_raw_bike.py --model arf --max-samples 5000 --window-size 500
 ```
 
 CLI parameters:
@@ -132,6 +139,9 @@ CLI parameters:
 - `--horizon`: forecasting horizon `H` for aggregated targets
 - `--include-input-lags`: include lagged input features
 - `--max-samples`: max samples per mode (`-1` means process all)
+
+Note: examples now generate a single transformed dataset using horizon `H`.
+Set `--horizon 1` to get one-step-ahead behavior.
 
 `src/forecasting/core.py` is intentionally simplified and now assumes CapyMOA
 regression stream instances (`instance.y_value` and `instance.x`) to make the

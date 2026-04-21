@@ -1,4 +1,5 @@
 capymoa
+matplotlib
 torch
 torchvision
 torchaudio
