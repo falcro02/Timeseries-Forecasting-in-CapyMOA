@@ -123,6 +123,8 @@ python examples/run_part2_fried.py
 python examples/run_bike.py
 python examples/run_part3_prequential_bike.py
 python examples/run_part3_raw_bike.py
+python examples/run_part3_prequential_fried.py
+python examples/run_part3_raw_fried.py
 
 # custom parameters
 python examples/run_part2_bike.py --lag-size 48 --horizon 12 --include-input-lags --max-samples 5000
@@ -131,6 +133,8 @@ python examples/run_bike.py --lag-size 2 --horizon 3 --include-input-lags --show
 python examples/run_part3_prequential_bike.py --lag-size 24 --horizon 1 --model arf --max-samples 5000 --window-size 500
 python examples/run_part3_prequential_bike.py --lag-size 24 --horizon 3 --model sgd --max-samples 5000 --window-size 500
 python examples/run_part3_raw_bike.py --model arf --max-samples 5000 --window-size 500
+python examples/run_part3_prequential_fried.py --lag-size 24 --horizon 1 --model arf --max-samples 2000 --window-size 500
+python examples/run_part3_raw_fried.py --model arf --max-samples 2000 --window-size 500
 ```
 
 Part 3 scripts now save only the plot image in `outputs/` using an automatic
