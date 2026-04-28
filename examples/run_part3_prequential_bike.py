@@ -17,7 +17,7 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from forecasting import ExperimentHelper, ForecastDatasetBuilder, LagTransformer
+from forecasting import ExperimentHelper, ForecastingStream, LagTransformer
 
 
 def build_model(name: str, schema, learning_rate: float, random_seed: int):
@@ -50,32 +50,19 @@ def main() -> None:
     max_samples = ExperimentHelper.normalize_max_samples(args.max_samples)
 
     stream = Bike()
-    builder = ForecastDatasetBuilder(
+    transformed_stream = ForecastingStream(
+        source_stream=stream,
         transformer=LagTransformer(
             k=args.lag_size,
             include_input_lags=args.include_input_lags,
         ),
-    )
-
-    samples = builder.build_forecasting_dataset(
-        source=stream,
         horizon=args.horizon,
         max_samples=max_samples,
     )
 
-    if not samples:
-        print("No forecasting samples available for evaluation.")
+    if not transformed_stream.has_more_instances():
+        print("No forecasting samples available for eval.")
         return
-
-    x_data = np.array([sample.features for sample in samples], dtype=float)
-    y_data = np.array([sample.target for sample in samples], dtype=float)
-
-    transformed_stream = NumpyStream(
-        x_data,
-        y_data,
-        dataset_name="BikeForecastingTransformed",
-        target_type="numeric",
-    )
 
     learner = build_model(
         name=args.model,
@@ -87,7 +74,7 @@ def main() -> None:
     results = prequential_evaluation(
         stream=transformed_stream,
         learner=learner,
-        max_instances=len(samples),
+        max_instances=max_samples,
         window_size=args.window_size,
         optimise=True,
         progress_bar=True,
@@ -123,7 +110,7 @@ def main() -> None:
     print(f"model: {args.model}")
     print(f"lag size (k): {args.lag_size}")
     print(f"include input lags: {args.include_input_lags}")
-    print(f"evaluated samples: {len(samples)}")
+    print(f"evaluated samples: {transformed_stream.emitted_count}")
     if hasattr(cumulative, "mae"):
         print(f"cumulative MAE: {cumulative_mae:.4f}")
     print(f"cumulative RMSE: {cumulative_rmse:.4f}")
@@ -133,7 +120,7 @@ def main() -> None:
 
     windowed_mae = ExperimentHelper.metric_as_series(windowed.mae()) if hasattr(windowed, "mae") else []
     windowed_rmse = ExperimentHelper.metric_as_series(windowed.rmse())
-    x_rmse = ExperimentHelper.window_end_samples(len(windowed_rmse), args.window_size, len(samples))
+    x_rmse = ExperimentHelper.window_end_samples(len(windowed_rmse), args.window_size, transformed_stream.emitted_count)
 
     summary = {
         "dataset": "bike",
@@ -144,7 +131,7 @@ def main() -> None:
         "horizon": args.horizon,
         "include_input_lags": args.include_input_lags,
         "window_size": args.window_size,
-        "evaluated_samples": len(samples),
+        "evaluated_samples": transformed_stream.emitted_count,
         "cumulative_mae": cumulative_mae,
         "cumulative_rmse": cumulative_rmse,
         "windowed_mae": windowed_mae_final,
@@ -156,7 +143,7 @@ def main() -> None:
         ax = plt.gca()
 
         if windowed_mae:
-            x_mae = ExperimentHelper.window_end_samples(len(windowed_mae), args.window_size, len(samples))
+            x_mae = ExperimentHelper.window_end_samples(len(windowed_mae), args.window_size, transformed_stream.emitted_count)
             plt.plot(x_mae, windowed_mae, label="Windowed MAE", linewidth=2)
         plt.plot(x_rmse, windowed_rmse, label="Windowed RMSE", linewidth=2)
 

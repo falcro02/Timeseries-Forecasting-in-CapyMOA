@@ -6,6 +6,9 @@ This module keeps the public pipeline small on purpose:
 - return plain Python lists that can be used by a model or exported.
 """
 
+import numpy as np
+from capymoa.stream import Stream, Schema
+from capymoa.instance import RegressionInstance
 from collections import deque
 from dataclasses import dataclass
 from statistics import mean
@@ -86,77 +89,125 @@ class HorizonAggregator:
         return None
 
 
-class ForecastDatasetBuilder:
-    """Convert CapyMOA stream instances into forecasting samples.
-
-    Expected stream instance attributes:
-    - y_value: numeric regression target.
-    - x: input feature vector.
-    - timestamp (optional): used only when the transformer requests time features.
+class ForecastingStream(Stream):
+    """A CapyMOA Stream that processes an upstream time series in a purely streaming fashion.
+    
+    It consumes instances from the source stream, transforms them via LagTransformer, 
+    aggregates targets via HorizonAggregator, and yields them sequentially.
     """
 
-    def __init__(self, transformer: LagTransformer):
-        """Store the lag transformer used to convert stream observations.
-
-        Args:
-            transformer: The lag transformer that produces forecasting features.
-        """
-        self.transformer = transformer
-
-    def _transform_step(self, instance) -> Optional[ForecastSample]:
-        """Transform one stream instance into a one-step forecasting sample.
-
-        The method returns None during the warm-up phase, when the transformer
-        does not yet have enough history to build a lag window.
-        """
-        current_y = float(instance.y_value)
-        current_x: Optional[Sequence[float]] = instance.x
-        timestamp = getattr(instance, "timestamp", None)
-
-        result = self.transformer.step(
-            current_y=current_y,
-            current_x=current_x,
-            timestamp=timestamp,
-        )
-        if result is None:
-            return None
-
-        features, target = result
-        return ForecastSample(features=list(features), target=float(target))
-
-    def build_forecasting_dataset(
-        self,
-        source: Iterable,
-        horizon: int,
-        max_samples: Optional[int] = None,
-    ) -> list[ForecastSample]:
+    def __init__(self, source_stream: Stream, transformer: LagTransformer, horizon: int = 1, max_samples: Optional[int] = None):
+        """Create a streaming dataset that evaluates targets H steps ahead.
         
-        """Build forecasting samples whose target is the mean over the next H one-step targets.
-
         Args:
-            source: Iterable of stream instances.
-            horizon: Number of future one-step targets to average.
-            max_samples: Optional cap on the number of returned samples.
-
-        Returns:
-            A list of forecasting samples ready to be used by a regressor.
+            source_stream: The underlying CapyMOA stream (e.g. Bike() or Fried()).
+            transformer: The tool that lags observations into a feature vector.
+            horizon: Number of future targets to average (or 1 for one-step delay).
+            max_samples: Optional limit on the number of emitted samples.
         """
-        aggregator = HorizonAggregator(horizon=horizon)
-        samples: list[ForecastSample] = []
+        self.source_stream = source_stream
+        self.transformer = transformer
+        self.horizon = horizon
+        self.max_samples = max_samples
+        self.aggregator = HorizonAggregator(horizon=horizon)
+        
+        self.emitted_count = 0
+        self._next_sample = None
+        self._schema = None
 
-        for instance in source:
-            transformed = self._transform_step(instance)
-            if transformed is None:
+        # Fetch the very first sample to construct the schema before evaluation starts
+        self._poll_next()
+        if self._next_sample is not None:
+            num_features = len(self._next_sample.features)
+            feature_names = [f"lag_feature_{i}" for i in range(num_features)]
+            # Schema.from_custom expects the target attribute to appear in the
+            # features list (example in capymoa docs). Append the target name.
+            schema_features = feature_names + ["target"]
+            self._schema = Schema.from_custom(
+                features=schema_features,
+                target="target",
+                name="ForecastingTransformed",
+            )
+
+    def _poll_next(self):
+        """Consume source instances until a valid sample is available from the aggregator."""
+        if self.max_samples is not None and self.emitted_count >= self.max_samples:
+            self._next_sample = None
+            return
+
+        while self.source_stream.has_more_instances():
+            instance = self.source_stream.next_instance()
+            
+            y_val = float(instance.y_value)
+            x_val = getattr(instance, "x", None)
+            timestamp = getattr(instance, "timestamp", None)
+            
+            result = self.transformer.step(
+                current_y=y_val, 
+                current_x=x_val, 
+                timestamp=timestamp
+            )
+            
+            if result is None:
                 continue
+                
+            features, target = result
+            aggregated = self.aggregator.step(features, target)
+            
+            if aggregated is not None:
+                self._next_sample = aggregated
+                return
+                
+        self._next_sample = None
 
-            aggregated = aggregator.step(transformed.features, transformed.target)
-            if aggregated is None:
-                continue
+    def has_more_instances(self) -> bool:
+        return self._next_sample is not None
 
-            samples.append(aggregated)
+    def next_instance(self) -> RegressionInstance:
+        if self._next_sample is None:
+            raise StopIteration("No more transformed instances available.")
+            
+        if self._schema is None:
+            raise ValueError("Schema is not initialized yet.")
 
-            if max_samples is not None and len(samples) >= max_samples:
-                break
+        instance_features = np.array(self._next_sample.features, dtype=np.float64)
+        instance_target = np.float64(self._next_sample.target)
+        
+        # Build CapyMOA RegressionInstance directly
+        inst = RegressionInstance.from_array(self._schema, instance_features, instance_target)
+        
+        self.emitted_count += 1
+        self._poll_next()
+        return inst
 
-        return samples
-    
+    def get_schema(self) -> Schema:
+        if self._schema is None:
+            raise ValueError("Schema is not initialized yet.")
+        return self._schema
+
+    def restart(self) -> None:
+        """Reset internal states and restart the source stream."""
+        self.source_stream.restart()
+        # Since transformer has no reset, we assume the user instantiates a new one
+        # or we just clear its internal queue manually.
+        if hasattr(self.transformer, 'past_target_window'):
+            self.transformer.past_target_window.clear()
+        if hasattr(self.transformer, 'past_feature_window') and self.transformer.past_feature_window is not None:
+            self.transformer.past_feature_window.clear()
+        self.aggregator = HorizonAggregator(horizon=self.horizon)
+        self.emitted_count = 0
+        self._next_sample = None
+        # Preserve schema or regenerate? Regenerate is safer.
+        self._schema = None
+        self._poll_next()
+        if self._next_sample is not None:
+            num_features = len(self._next_sample.features)
+            feature_names = [f"lag_feature_{i}" for i in range(num_features)]
+            # Schema.from_custom expects the target attribute to appear in the
+            # features list (example in capymoa docs). Append the target name.
+            schema_features = feature_names + ["target"]
+            self._schema = Schema.from_custom(
+                features=schema_features,
+                target="target",
+                name="ForecastingTransformed",
+            )

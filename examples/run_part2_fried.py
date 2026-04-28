@@ -10,7 +10,7 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from forecasting import ForecastDatasetBuilder, LagTransformer
+from forecasting import ForecastingStream, LagTransformer
 
 
 def parse_args() -> argparse.Namespace:
@@ -41,22 +41,53 @@ def main() -> None:
     max_samples = None if args.max_samples < 0 else args.max_samples
 
     stream = Fried()
-    builder = ForecastDatasetBuilder(
+    transformed_stream = ForecastingStream(
+        source_stream=stream,
         transformer=LagTransformer(k=lag_size, include_input_lags=include_input_lags),
-    )
-    samples = builder.build_forecasting_dataset(
-        source=stream,
         horizon=horizon,
         max_samples=max_samples,
     )
 
     mode = "one-step" if horizon == 1 else f"aggregated H={horizon}"
-    print(f"Samples ({mode}): {len(samples)}")
-    if samples:
-        first = samples[0]
-        print(
-            f"First sample -> x_len={len(first.features)}, target={first.target:.3f}"
-        )
+    count = 0
+    first_x = None
+    first_y = None
+    samples = []
+    while transformed_stream.has_more_instances():
+        inst = transformed_stream.next_instance()
+        if count == 0:
+            first_x = inst.x
+            first_y = inst.y_value
+        if len(samples) < 10:
+            samples.append((inst.x, inst.y_value))
+        count += 1
+
+    print(f"Samples ({mode}): {count}")
+    if count > 0:
+        x_len = len(first_x) if (first_x is not None and hasattr(first_x, "__len__")) else 0
+        target_val = float(first_y) if first_y is not None else float("nan")
+        print(f"First sample -> x_len={x_len}, target={target_val:.3f}")
+        print("\nFirst 10 samples (or fewer if stream shorter):")
+        def _format_x(x):
+            if x is None:
+                return "None"
+            try:
+                lst = x.tolist() if hasattr(x, "tolist") else list(x) if hasattr(x, "__iter__") else x
+            except Exception:
+                return repr(x)
+            if isinstance(lst, (list, tuple)):
+                n = len(lst)
+                if n > 20:
+                    return f"{lst[:20]}...(+{n-20} more)"
+                return repr(lst)
+            return repr(lst)
+
+        for i, (xx, yy) in enumerate(samples, start=1):
+            try:
+                yv = float(yy) if yy is not None else float("nan")
+            except Exception:
+                yv = repr(yy)
+            print(f"#{i}: x={_format_x(xx)}, target={yv}")
 
 
 if __name__ == "__main__":
