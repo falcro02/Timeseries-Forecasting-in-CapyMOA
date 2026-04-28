@@ -129,9 +129,16 @@ python examples/run_part2_bike.py --lag-size 48 --horizon 12 --include-input-lag
 python examples/run_part2_fried.py --lag-size 24 --horizon 1 --max-samples -1
 python examples/run_bike.py --lag-size 2 --horizon 3 --include-input-lags --show-samples 5
 python examples/run_part3_prequential_bike.py --lag-size 24 --horizon 1 --model arf --max-samples 5000 --window-size 500
-python examples/run_part3_prequential_bike.py --lag-size 24 --horizon 3 --model sgd --max-samples 5000 --window-size 500 --save-plot outputs/bike_h3.png
+python examples/run_part3_prequential_bike.py --lag-size 24 --horizon 3 --model sgd --max-samples 5000 --window-size 500
 python examples/run_part3_raw_bike.py --model arf --max-samples 5000 --window-size 500
 ```
+
+Part 3 scripts now save only the plot image in `outputs/` using an automatic
+file name based on input parameters:
+
+- plot image (`.png`)
+
+Use `--show-plot` if you also want to open the interactive plot window.
 
 CLI parameters:
 

@@ -130,6 +130,7 @@ class ForecastDatasetBuilder:
         horizon: int,
         max_samples: Optional[int] = None,
     ) -> list[ForecastSample]:
+        
         """Build forecasting samples whose target is the mean over the next H one-step targets.
 
         Args:

@@ -1,4 +1,5 @@
 from .core import ForecastDatasetBuilder, ForecastSample, HorizonAggregator
+from .experiment_utils import ExperimentHelper
 from .lag_transformer import LagTransformer
 
 __all__ = [
@@ -6,4 +7,5 @@ __all__ = [
     "ForecastDatasetBuilder",
     "ForecastSample",
     "HorizonAggregator",
+    "ExperimentHelper",
 ]
