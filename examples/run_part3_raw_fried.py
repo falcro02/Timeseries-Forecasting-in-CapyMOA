@@ -40,7 +40,6 @@ def parse_args() -> argparse.Namespace:
     parser = ExperimentHelper.create_prequential_parser(
         description="Prequential evaluation on the raw Fried stream (no forecasting transform).",
         include_forecasting_args=False,
-        default_max_samples=2000,
     )
     return parser.parse_args()
 

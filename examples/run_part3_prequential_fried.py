@@ -42,7 +42,6 @@ def parse_args() -> argparse.Namespace:
     parser = ExperimentHelper.create_prequential_parser(
         description="Part 3: prequential simulation on transformed Fried forecasting samples.",
         include_forecasting_args=True,
-        default_max_samples=2000,
     )
     return parser.parse_args()
 

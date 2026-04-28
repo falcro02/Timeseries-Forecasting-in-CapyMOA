@@ -41,7 +41,6 @@ def parse_args() -> argparse.Namespace:
     parser = ExperimentHelper.create_prequential_parser(
         description="Part 3: prequential simulation on transformed Bike forecasting samples.",
         include_forecasting_args=True,
-        default_max_samples=5000,
     )
     return parser.parse_args()
 
@@ -113,7 +112,7 @@ def main() -> None:
         ExperimentHelper.metric_as_float(cumulative.mae()) if hasattr(cumulative, "mae") else float("nan")
     )
     cumulative_rmse = ExperimentHelper.metric_as_float(cumulative.rmse())
-    
+
     windowed_mae_final = (
         ExperimentHelper.metric_as_float(windowed.mae()) if hasattr(windowed, "mae") else float("nan")
     )

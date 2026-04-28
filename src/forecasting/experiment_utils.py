@@ -15,7 +15,6 @@ class ExperimentHelper:
     def create_prequential_parser(
         description: str,
         include_forecasting_args: bool,
-        default_max_samples: int,
     ) -> argparse.ArgumentParser:
         parser = argparse.ArgumentParser(description=description)
 
@@ -31,13 +30,13 @@ class ExperimentHelper:
         parser.add_argument(
             "--max-samples",
             type=int,
-            default=default_max_samples,
+            default=-1,
             help="Maximum number of instances to evaluate. Use -1 for all.",
         )
         parser.add_argument(
             "--model",
             choices=["sgd", "arf", "fimtdd"],
-            default="arf",
+            default="sgd",
             help="CapyMOA regressor used in prequential evaluation.",
         )
         parser.add_argument(
@@ -49,7 +48,7 @@ class ExperimentHelper:
         parser.add_argument(
             "--window-size",
             type=int,
-            default=1000,
+            default=500,
             help="Window size used by CapyMOA prequential evaluator.",
         )
         parser.add_argument(
